@@ -1,18 +1,30 @@
 // middleware/authMiddleware.js
-const jwt = require('jsonwebtoken');
+const jwt     = require('jsonwebtoken');
+const Usuario = require('../models/Usuario');
 
-module.exports = (req, res, next) => {
+module.exports = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) 
+  if (!authHeader) {
     return res.status(401).json({ msg: 'Autenticação falhou: token não fornecido.' });
+  }
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.usuarioId = decoded.id;
+    // Verifica e extrai o payload
+    const { id } = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Busca o utilizador na base de dados
+    const user = await Usuario.findById(id);
+    if (!user) {
+      return res.status(401).json({ msg: 'Utilizador não encontrado.' });
+    }
+
+    // Define no request o id e o perfil (role)
+    req.usuarioId   = user._id;
+    req.usuarioRole = user.role;
+
     next();
   } catch (err) {
     return res.status(403).json({ msg: 'Token inválido ou expirado.' });
   }
 };
-
